@@ -252,3 +252,44 @@ def get_driver_analysis(pattern, states_data):
 
 
     return analyses.get(pattern, "")
+
+def get_targeted_recommendations(pattern, states_data):
+    """Recommendations Actions"""
+
+    recommendations = {
+        'High Activity - School-Led Success': """
+
+1. Standardize school-led Aadhaar update workflows for replication
+2. Audit records to ensure quality and avoid duplication
+3. Leverage schools/PTAs for parent and family outreach
+4. Expand mobile enrollment camps via educational institutions""",
+
+        'High Activity - Adult-Led Success': """
+
+1. Identify key adult update drivers (migration, welfare schemes, address changes)
+2. Strengthen CSC and enrollment infrastructure to manage sustained demand
+3. Strengthen anomaly detection controls to flag mass address shifts or fraudulent updates.
+4. Replicate high-performing adult outreach models in low-activity regions""",
+
+        'Stagnation - System-Wide Failure': """
+
+1. Conduct rapid audits of enrollment infrastructure and service availability
+2. Deploy mobile enrollment units in remote areas
+3. Launch local-language awareness campaigns
+4. Integrate Aadhaar updates with public policies""",
+
+        'Stagnation - School Programs Failing': """
+
+1. Mandate Aadhaar verification during school admissions and examinations
+2. Link scholarships and mid-day meals with Aadhaar verification
+5. Monitor school-wise coverage as a performance indicator""",
+
+        'Stagnation - Adult Outreach Failing': """
+
+1. Link Aadhaar updates to welfare scheme renewals and service access
+2. Expand and incentivise CSC operations in low-coverage areas
+3. Target migrant workers, elderly, and women through focused outreach
+4. Run awareness campaigns to increase participation"""
+    }
+
+    return recommendations.get(pattern, "")
