@@ -173,3 +173,82 @@ analysis_df['size_category'] = np.select(
     ['Small','Medium'],
     default='Large'
 )
+
+# ==========================================
+# 7. IMPROVED PATTERN CLASSIFICATION
+# ==========================================
+
+def classify_pattern(row):
+    """Classify states with clearer, action-oriented labels"""
+    hotspot = row['hotspot']
+    # This function is applied to 'deviated' which has 'rate_5_17' and 'rate_18_plus'
+    rate_5_17 = row.get('rate_5_17', 0)
+    rate_18_plus = row.get('rate_18_plus', 0)
+
+    # Calculate ratio to determine primary driver
+    if rate_5_17 + rate_18_plus > 0:
+        youth_ratio = rate_5_17 / (rate_5_17 + rate_18_plus)
+    else:
+        youth_ratio = 0.5
+
+    if hotspot == 'High':
+        if youth_ratio > 0.6:  # Youth contributing >60%
+            return 'High Activity - School-Led Success'
+        else:
+            return 'High Activity - Adult-Led Success'
+    elif hotspot == 'Low':
+        # Check for complete stagnation
+        if rate_5_17 < 1 and rate_18_plus < 1:
+            return 'Stagnation - System-Wide Failure'
+        elif youth_ratio < 0.4:  # Youth contributing <40%
+            return 'Stagnation - School Programs Failing'
+        else:
+            return 'Stagnation - Adult Outreach Failing'
+    return 'Normal'
+
+def get_driver_analysis(pattern, states_data):
+    """Detailed analysis identifying WHO is driving activity"""
+
+    # This function operates on 'pattern_data', which is from 'output_table'.
+    # 'output_table' has columns 'Rate_5_17' and 'Rate_18+'.
+    avg_youth = states_data['Rate_5_17'].mean()
+    avg_adult = states_data['Rate_18+'].mean()
+    n_states = len(states_data)
+
+    analyses = {
+        'High Activity - School-Led Success': f"""
+    🎯 PRIMARY DRIVER: Youth (5–18) | {n_states} State(s)
+
+    • Youth updates far exceed adult updates (Youth: {avg_youth:.1f}/1000 vs Adult: {avg_adult:.1f}/1000)
+    • Strong school-led update programmes (admissions, scholarships, PTAs) driving compliance""",
+
+        'High Activity - Adult-Led Success': f"""
+    🎯 PRIMARY DRIVER: Adults (18+) | {n_states} State(s)
+
+    • Adult updates dominate (Adult: {avg_adult:.1f}/1000 vs Youth: {avg_youth:.1f}/1000)
+    • Updates triggered by welfare schemes, migration, banking, and service mandates""",
+
+        'Stagnation - System-Wide Failure': f"""
+    ⚠️ SYSTEM-WIDE STAGNATION | {n_states} State(s)
+
+    • Critically low engagement across youth and adults (Youth: {avg_youth:.1f}, Adult: {avg_adult:.1f}/1000)
+    • Indicates infrastructure, awareness, or administrative failure
+    • Requires urgent, multi-sector intervention or saturation validation""",
+
+        'Stagnation - School Programs Failing': f"""
+    ⚠️ YOUTH SEGMENT FAILURE | {n_states} State(s)
+
+    • Youth updates lag despite active adult participation
+    • School-based Aadhaar linkages and enforcement ineffective
+    • Infrastructure exists but education-sector execution is weak""",
+
+        'Stagnation - Adult Outreach Failing': f"""
+    ⚠️ ADULT SEGMENT FAILURE | {n_states} State(s)
+
+    • Adult updates lag despite active youth programs
+    • Welfare, CSC, and workplace outreach underperforming
+    • Potential indication of limited migration and job prospects"""
+    }
+
+
+    return analyses.get(pattern, "")
