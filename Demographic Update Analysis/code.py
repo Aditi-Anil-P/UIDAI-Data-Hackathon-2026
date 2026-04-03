@@ -89,3 +89,40 @@ base_18p['base_18_plus'] = base_18p[col_18p].astype(str).str.replace(',', '').as
 
 base_5_17 = base_5_17.groupby('state_clean', as_index=False)['base_5_17'].sum()
 base_18p  = base_18p.groupby('state_clean', as_index=False)['base_18_plus'].sum()
+
+# ==========================================
+# 4. AGGREGATION
+# ==========================================
+
+analysis_df = (
+    demo_df.groupby('state_clean', as_index=False)['total_count']
+    .sum().rename(columns={'total_count':'total_updates'})
+    .merge(
+        enrol_df.groupby('state_clean', as_index=False)['total_count']
+        .sum().rename(columns={'total_count':'total_enrolments'}),
+        on='state_clean', how='outer'
+    )
+    .merge(base_grouped, on='state_clean', how='inner')
+    .fillna(0)
+)
+
+demo_raw = pd.concat(
+    (pd.read_csv(f) for f in glob.glob('api_data_aadhar_demographic_*.csv')),
+    ignore_index=True
+)
+demo_raw['state_clean'] = demo_raw['state'].apply(clean_state_name)
+demo_raw = demo_raw[~demo_raw['state_clean'].str.lower().isin(JUNK_STATES)]
+
+age_df = demo_raw.groupby('state_clean', as_index=False)[
+    ['demo_age_5_17','demo_age_17_']
+].sum()
+
+analysis_df = (
+    analysis_df
+        .merge(age_df, on='state_clean', how='left')
+        .merge(base_5_17, on='state_clean', how='left')
+        .merge(base_18p, on='state_clean', how='left')
+)
+
+num_cols = analysis_df.select_dtypes(include='number').columns
+analysis_df[num_cols] = analysis_df[num_cols].fillna(0)
