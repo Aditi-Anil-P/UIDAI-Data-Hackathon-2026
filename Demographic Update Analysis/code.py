@@ -330,3 +330,172 @@ for idx, row in deviated.iterrows():
     })
 
 output_table = pd.DataFrame(output_rows)
+
+# ==========================================
+# 10. VISUALIZATIONS
+# ==========================================
+
+colors = {'Low':'#302BE0', 'Normal':'#51F057', 'High':'#FF0000'}
+markers = {'Small':'o', 'Medium':'s', 'Large':'^'}
+
+plt.figure(figsize=(18, 12))
+
+mean_update = analysis_df['monthly_update_rate'].mean()
+mean_enroll = analysis_df['monthly_enrollment_rate'].mean()
+max_enroll = analysis_df['monthly_enrollment_rate'].max()
+max_update = analysis_df['monthly_update_rate'].max()
+
+plt.axhline(y=mean_update, color='#FF8C00', linestyle='--', linewidth=2, alpha=0.9)
+plt.text(x=max_enroll*0.95, y=mean_update + (max_update*0.01),
+         s=f'Avg Update Rate: {mean_update:.1f}',
+         color='#FF8C00', fontweight='bold', ha='right', fontsize=14, backgroundcolor='white')
+
+plt.axvline(x=mean_enroll, color='#800080', linestyle='--', linewidth=2, alpha=0.9)
+plt.text(x=mean_enroll + (max_enroll*0.01), y=max_update*0.95,
+         s=f'Avg Enrollment Rate: {mean_enroll:.1f}',
+         color='#800080', fontweight='bold', va='top', rotation=90, fontsize=14, backgroundcolor='white')
+
+np.random.seed(42)
+analysis_df['x_jitter'] = 0.0
+analysis_df['y_jitter'] = 0.0
+is_normal = analysis_df['hotspot'] == 'Normal'
+
+analysis_df.loc[is_normal, 'x_jitter'] = np.random.uniform(
+    -0.1 * analysis_df['monthly_enrollment_rate'].std(),
+     0.1 * analysis_df['monthly_enrollment_rate'].std(),
+    size=is_normal.sum()
+)
+analysis_df.loc[is_normal, 'y_jitter'] = np.random.uniform(
+    -0.1 * analysis_df['monthly_update_rate'].std(),
+     0.1 * analysis_df['monthly_update_rate'].std(),
+    size=is_normal.sum()
+)
+
+for size in markers:
+    for hs in colors:
+        subset = analysis_df[(analysis_df['size_category'] == size) & (analysis_df['hotspot'] == hs)]
+        if len(subset) > 0:
+            plt.scatter(
+                subset['monthly_enrollment_rate'] + subset['x_jitter'],
+                subset['monthly_update_rate'] + subset['y_jitter'],
+                s=700,
+                c=colors[hs],
+                marker=markers[size],
+                edgecolors='black',
+                alpha=0.7
+            )
+
+for row in deviated.itertuples():
+    plt.text(
+        row.monthly_enrollment_rate,
+        row.monthly_update_rate,
+        str(int(row.Hotspot_ID)),
+        fontsize=14,
+        fontweight='bold',
+        ha='center',
+        va='center',
+        color='white'
+    )
+
+plt.xlabel('Monthly Enrollment Rate (per 1,000)', fontweight='bold', fontsize=16)
+plt.ylabel('Monthly Demographic Update Rate (per 1,000)', fontweight='bold', fontsize=16)
+plt.title('Monthly Aadhaar Demographic Update Activity Analysis \n', fontweight='bold', fontsize=20)
+plt.grid(True, which="both", ls="-", alpha=0.15)
+plt.ylim(bottom=0)
+
+color_legend = [Patch(facecolor=colors[k], edgecolor='black', label=f'{k} Activity') for k in colors]
+shape_legend = [Line2D([0], [0], marker=markers[k], color='w', markerfacecolor='gray',
+                       markersize=15, label=f'{k} Population') for k in markers]
+
+plt.legend(
+    handles=color_legend + shape_legend,
+    title='Legend',
+    loc='upper left',
+    bbox_to_anchor=(1.02, 1),
+    fontsize=14,
+    title_fontsize=16,
+    borderaxespad=0
+)
+
+plt.tight_layout()
+plt.show()
+
+# BAR CHART
+plt.figure(figsize=(20, 10))
+
+cat_order = ['Small', 'Medium', 'Large']
+analysis_df['size_category'] = pd.Categorical(
+    analysis_df['size_category'],
+    categories=cat_order,
+    ordered=True
+)
+df_sorted = analysis_df.sort_values(['size_category', 'base_aadhaar_population']).reset_index(drop=True)
+
+bar_colors = df_sorted['hotspot'].map(colors).tolist()
+
+bars = plt.bar(
+    df_sorted['state_clean'],
+    df_sorted['monthly_update_rate'],
+    color=bar_colors,
+    edgecolor='black',
+    alpha=0.85
+)
+
+current_idx = 0
+max_val = df_sorted['monthly_update_rate'].max()
+plt.ylim(0, max_val * 1.25)
+
+for cat in cat_order:
+    subset_len = len(df_sorted[df_sorted['size_category'] == cat])
+    if subset_len > 0:
+        end_idx = current_idx + subset_len
+        if end_idx < len(df_sorted):
+            plt.axvline(x=end_idx - 0.5, color='gray', linestyle=':', linewidth=2)
+
+        mid_point = current_idx + (subset_len / 2) - 0.5
+        plt.text(mid_point, max_val * 1.1,
+                 f"{cat} States",
+                 ha='center', va='bottom', fontweight='bold', fontsize=15,
+                 bbox=dict(facecolor='#f0f0f0', edgecolor='gray', boxstyle='round,pad=0.3'))
+
+        current_idx += subset_len
+
+plt.axhline(y=mean_update, color='#FF8C00', linestyle='--', linewidth=2.5)
+plt.text(len(df_sorted)-1, mean_update * 1.05, f'National Avg: {mean_update:.1f}',
+         color='#FF8C00', fontweight='bold', ha='right', fontsize=12, backgroundcolor='white')
+
+plt.xlabel('States (Sorted by Population Size)', fontweight='bold', fontsize=18)
+plt.ylabel('Monthly Demographic Update Rate (per 1,000)', fontweight='bold', fontsize=16)
+plt.title('\n\nState-wise Aadhaar Update Activity\n', fontweight='bold', fontsize=20, pad=20)
+plt.xticks(rotation=90, fontsize=10)
+plt.legend(handles=color_legend, title='Activity Level', fontsize=12, loc='upper left')
+plt.tight_layout()
+plt.show()
+
+# AGE-WISE COMPARISON
+def plot_agewise(df, title):
+    if len(df) == 0:
+        return
+    x = np.arange(len(df))
+    w = 0.32
+
+    plt.figure(figsize=(14,6))
+    plt.bar(x - w/2, df['rate_5_17'], w, label='Youth (5–17)', color='#1f77b4', edgecolor='black')
+    plt.bar(x + w/2, df['rate_18_plus'], w, label='Adults (18+)', color='#ff7f0e', edgecolor='black')
+
+    plt.xticks(x, df['state_clean'], ha='right')
+    plt.ylabel('Updates per 1,000 (Age-Normalized)', fontweight='bold')
+    plt.title(title, fontweight='bold', fontsize=14)
+    plt.legend()
+    plt.tight_layout()
+    plt.show()
+
+plot_agewise(
+    analysis_df[analysis_df['hotspot']=='High'],
+    'High Activity States : Driver Diagnosis'
+)
+
+plot_agewise(
+    analysis_df[analysis_df['hotspot']=='Low'],
+    'Low Activity States : Driver Diagnosis'
+)
