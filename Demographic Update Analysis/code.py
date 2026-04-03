@@ -160,3 +160,16 @@ analysis_df['hotspot'] = pd.cut(
     [-np.inf, -1, 1, np.inf],
     labels=['Low','Normal','High']
 )
+
+# ==========================================
+# 6. SIZE STRATIFICATION
+# ==========================================
+
+q33, q67 = analysis_df['base_aadhaar_population'].quantile([0.33,0.67])
+
+analysis_df['size_category'] = np.select(
+    [analysis_df['base_aadhaar_population'] < q33,
+     analysis_df['base_aadhaar_population'] < q67],
+    ['Small','Medium'],
+    default='Large'
+)
