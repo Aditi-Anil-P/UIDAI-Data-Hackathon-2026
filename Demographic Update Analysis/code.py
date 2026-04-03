@@ -126,3 +126,37 @@ analysis_df = (
 
 num_cols = analysis_df.select_dtypes(include='number').columns
 analysis_df[num_cols] = analysis_df[num_cols].fillna(0)
+
+# ==========================================
+# 5. NORMALIZATION & Z-SCORES
+# ==========================================
+
+analysis_df['monthly_update_rate'] = (
+    analysis_df['total_updates'] / analysis_df['base_aadhaar_population'] * 1000
+)
+
+analysis_df['monthly_enrollment_rate'] = (
+    analysis_df['total_enrolments'] / analysis_df['base_aadhaar_population'] * 1000
+)
+
+analysis_df['rate_5_17'] = np.where(
+    analysis_df['base_5_17'] > 0,
+    analysis_df['demo_age_5_17'] / analysis_df['base_5_17'] * 1000,
+    0
+)
+
+analysis_df['rate_18_plus'] = np.where(
+    analysis_df['base_18_plus'] > 0,
+    analysis_df['demo_age_17_'] / analysis_df['base_18_plus'] * 1000,
+    0
+)
+
+analysis_df['z_score'] = (
+    analysis_df['monthly_update_rate'] - analysis_df['monthly_update_rate'].mean()
+) / analysis_df['monthly_update_rate'].std()
+
+analysis_df['hotspot'] = pd.cut(
+    analysis_df['z_score'],
+    [-np.inf, -1, 1, np.inf],
+    labels=['Low','Normal','High']
+)
