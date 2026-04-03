@@ -310,7 +310,7 @@ deviated['pattern'] = deviated.apply(classify_pattern, axis=1)
 deviated = deviated.sort_values(['pattern', 'z_score'], ascending=[True, False]).reset_index(drop=True)
 
 # ==========================================
-# 9. CREATE OUTPUT TABLES (FIXED)
+# 9. CREATE OUTPUT TABLES 
 # ==========================================
 
 output_rows = []
