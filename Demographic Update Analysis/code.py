@@ -309,3 +309,24 @@ deviated['Hotspot_ID'] = range(1, len(deviated) + 1)
 deviated['pattern'] = deviated.apply(classify_pattern, axis=1)
 deviated = deviated.sort_values(['pattern', 'z_score'], ascending=[True, False]).reset_index(drop=True)
 
+# ==========================================
+# 9. CREATE OUTPUT TABLES (FIXED)
+# ==========================================
+
+output_rows = []
+for idx, row in deviated.iterrows():
+    output_rows.append({
+        'Hotspot_ID': idx + 1,
+        'State/UT': row['state_clean'],
+        'Size': row['size_category'],
+        'Category': row['hotspot'],
+        'Pattern_Group': row['pattern'],
+        'Z_Score': row['z_score'],
+        'Update_Rate': row['monthly_update_rate'],
+        'Enroll_Rate': row['monthly_enrollment_rate'],
+        'Rate_5_17': row['rate_5_17'],
+        'Rate_18+': row['rate_18_plus'],
+        'Base_Population': row['base_aadhaar_population']
+    })
+
+output_table = pd.DataFrame(output_rows)
