@@ -499,3 +499,210 @@ plot_agewise(
     analysis_df[analysis_df['hotspot']=='Low'],
     'Low Activity States : Driver Diagnosis'
 )
+
+# ==========================================
+# 11. CREATE COMPREHENSIVE REPORTS
+# ==========================================
+
+print("\n" + "="*120)
+print("GENERATING DRIVER-FOCUSED ANALYSIS AND RECOMMENDATIONS")
+print("="*120)
+
+pd.set_option('display.max_columns', None)
+pd.set_option('display.max_colwidth', None)
+pd.set_option('display.width', None)
+pd.set_option('display.float_format', lambda x: '%.2f' % x)
+
+# Pattern Summary
+pattern_summary_rows = []
+
+for pattern in sorted(output_table['Pattern_Group'].unique()):
+    pattern_data = output_table[output_table['Pattern_Group'] == pattern]
+
+    states_list = ', '.join(pattern_data['State/UT'].tolist())
+    driver_analysis = get_driver_analysis(pattern, pattern_data)
+    recommendations = get_targeted_recommendations(pattern, pattern_data)
+
+    avg_z = pattern_data['Z_Score'].mean()
+    avg_update = pattern_data['Update_Rate'].mean()
+    avg_youth = pattern_data['Rate_5_17'].mean()
+    avg_adult = pattern_data['Rate_18+'].mean()
+
+    # Calculate primary driver percentage
+    total_rate = avg_youth + avg_adult
+    youth_pct = (avg_youth / total_rate * 100) if total_rate > 0 else 50
+    adult_pct = (avg_adult / total_rate * 100) if total_rate > 0 else 50
+
+    pattern_summary_rows.append({
+        'Pattern_Type': pattern,
+        'Number_of_States': len(pattern_data),
+        'States_List': states_list,
+        'Primary_Driver': 'Youth (5-17)' if youth_pct > 60 else ('Adults (18+)' if adult_pct > 60 else 'Balanced'),
+        'Youth_Contribution_Percent': youth_pct,
+        'Adult_Contribution_Percent': adult_pct,
+        'Avg_Z_Score': avg_z,
+        'Avg_Update_Rate': avg_update,
+        'Avg_Youth_Rate': avg_youth,
+        'Avg_Adult_Rate': avg_adult,
+        'Driver_Analysis': driver_analysis,
+        'Targeted_Recommendations': recommendations
+    })
+
+pattern_summary_df = pd.DataFrame(pattern_summary_rows)
+
+# ==========================================
+# CREATE PATTERN-TO-ANALYSIS MAPPING 
+# ==========================================
+
+# Create a mapping dictionary from pattern to driver analysis and recommendations
+pattern_to_driver = {}
+pattern_to_recommendations = {}
+
+for pattern in output_table['Pattern_Group'].unique():
+    pattern_data = output_table[output_table['Pattern_Group'] == pattern]
+    pattern_to_driver[pattern] = get_driver_analysis(pattern, pattern_data)
+    pattern_to_recommendations[pattern] = get_targeted_recommendations(pattern, pattern_data)
+
+# Detailed state-wise table (FIXED)
+detailed_rows = []
+
+for idx, row in output_table.iterrows():
+    # Calculate driver for this specific state
+    total_rate = row['Rate_5_17'] + row['Rate_18+']
+    youth_pct = (row['Rate_5_17'] / total_rate * 100) if total_rate > 0 else 50
+    adult_pct = (row['Rate_18+'] / total_rate * 100) if total_rate > 0 else 50
+
+    if youth_pct > 60:
+        state_driver = 'Youth (5-17)'
+    elif adult_pct > 60:
+        state_driver = 'Adults (18+)'
+    else:
+        state_driver = 'Balanced'
+
+    # Get the pattern group for this row
+    pattern = row['Pattern_Group']
+
+    detailed_rows.append({
+        'Hotspot_ID': row['Hotspot_ID'],
+        'State_UT': row['State/UT'],
+        'Size_Category': row['Size'],
+        'Activity_Category': row['Category'],
+        'Pattern_Type': pattern,
+        'Primary_Driver': state_driver,
+        'Youth_Contribution_Pct': youth_pct,
+        'Adult_Contribution_Pct': adult_pct,
+        'Z_Score': row['Z_Score'],
+        'Monthly_Update_Rate_per_1000': row['Update_Rate'],
+        'Monthly_Enrollment_Rate_per_1000': row['Enroll_Rate'],
+        'Youth_Rate_5_17_per_1000': row['Rate_5_17'],
+        'Adult_Rate_18plus_per_1000': row['Rate_18+'],
+        'Base_Aadhaar_Population': row['Base_Population'],
+        'Group_Driver_Analysis': pattern_to_driver[pattern],
+        'Targeted_Actions': pattern_to_recommendations[pattern]
+    })
+
+detailed_df = pd.DataFrame(detailed_rows)
+
+# Summary statistics
+summary_stats = {
+    'Metric': [
+        'Total States/UTs Analyzed',
+        'High Activity States',
+        'Normal Activity States',
+        'Low Activity (Stagnation) States',
+        'National Avg Update Rate (per 1000)',
+        'National Avg Enrollment Rate (per 1000)',
+        'Highest Update Rate',
+        'State with Highest Rate',
+        'Lowest Update Rate',
+        'State with Lowest Rate',
+        'States with School-Led Success',
+        'States with Adult-Led Success',
+        'States with System-Wide Failure',
+        'States with School Programs Failing',
+        'States with Adult Outreach Failing'
+    ],
+    'Value': [
+        len(analysis_df),
+        len(analysis_df[analysis_df['hotspot']=='High']),
+        len(analysis_df[analysis_df['hotspot']=='Normal']),
+        len(analysis_df[analysis_df['hotspot']=='Low']),
+        f"{mean_update:.2f}",
+        f"{mean_enroll:.2f}",
+        f"{analysis_df['monthly_update_rate'].max():.2f}",
+        analysis_df.loc[analysis_df['monthly_update_rate'].idxmax(), 'state_clean'],
+        f"{analysis_df['monthly_update_rate'].min():.2f}",
+        analysis_df.loc[analysis_df['monthly_update_rate'].idxmin(), 'state_clean'],
+        len(detailed_df[detailed_df['Pattern_Type']=='High Activity - School-Led Success']),
+        len(detailed_df[detailed_df['Pattern_Type']=='High Activity - Adult-Led Success']),
+        len(detailed_df[detailed_df['Pattern_Type']=='Stagnation - System-Wide Failure']),
+        len(detailed_df[detailed_df['Pattern_Type']=='Stagnation - School Programs Failing']),
+        len(detailed_df[detailed_df['Pattern_Type']=='Stagnation - Adult Outreach Failing'])
+    ]
+}
+
+summary_stats_df = pd.DataFrame(summary_stats)
+
+# Pattern distribution
+pattern_dist = output_table['Pattern_Group'].value_counts().reset_index()
+pattern_dist.columns = ['Pattern_Type', 'Number_of_States']
+pattern_dist = pattern_dist.sort_values('Pattern_Type')
+
+# ==========================================
+# 12. SAVE OUTPUT FILES
+# ==========================================
+
+pattern_summary_df.to_csv('aadhaar_driver_analysis_recommendations.csv', index=False)
+print("\n✓ Driver-Focused Pattern Analysis saved to: aadhaar_driver_analysis_recommendations.csv")
+
+detailed_df.to_csv('aadhaar_statewise_driver_analysis.csv', index=False)
+print("✓ State-wise Driver Analysis saved to: aadhaar_statewise_driver_analysis.csv")
+
+summary_stats_df.to_csv('aadhaar_summary_statistics.csv', index=False)
+print("✓ Summary Statistics saved to: aadhaar_summary_statistics.csv")
+
+pattern_dist.to_csv('aadhaar_pattern_distribution.csv', index=False)
+print("✓ Pattern Distribution saved to: aadhaar_pattern_distribution.csv")
+
+# ==========================================
+# 13. DISPLAY COMPREHENSIVE REPORT
+# ==========================================
+
+print("\n" + "="*120)
+print("DRIVER-FOCUSED PATTERN ANALYSIS & RECOMMENDATIONS")
+print("="*120 + "\n")
+
+for idx, row in pattern_summary_df.iterrows():
+    print("█"*120)
+    print(f"PATTERN: {row['Pattern_Type'].upper()}")
+    print("█"*120)
+    print(f"\nNumber of States/UTs: {row['Number_of_States']}")
+    print(f"States: {row['States_List']}")
+    print(f"\n🎯 PRIMARY DRIVER: {row['Primary_Driver']}")
+    print(f"   • Youth (5-17) Contribution: {row['Youth_Contribution_Percent']:.1f}%")
+    print(f"   • Adult (18+) Contribution: {row['Adult_Contribution_Percent']:.1f}%")
+    print(f"\nGroup Statistics:")
+    print(f"  • Average Z-Score: {row['Avg_Z_Score']:.2f}")
+    print(f"  • Average Update Rate: {row['Avg_Update_Rate']:.2f} per 1,000")
+    print(f"  • Average Youth Rate (5-17): {row['Avg_Youth_Rate']:.2f} per 1,000")
+    print(f"  • Average Adult Rate (18+): {row['Avg_Adult_Rate']:.2f} per 1,000")
+    print(f"\n{'─'*120}")
+    print("DRIVER ANALYSIS:")
+    print(f"{'─'*120}")
+    print(f"{row['Driver_Analysis']}")
+    print(f"\n{'─'*120}")
+    print("TARGETED RECOMMENDATIONS:")
+    print(f"{'─'*120}")
+    print(f"{row['Targeted_Recommendations']}\n\n")
+
+
+
+print("\n" + "="*120)
+print("✓ All files successfully generated!")
+print("="*120)
+print("\nGenerated Files:")
+print("  1. aadhaar_driver_analysis_recommendations.csv - WHO is driving activity (pattern-wise)")
+print("  2. aadhaar_statewise_driver_analysis.csv - Detailed state-wise with driver identification")
+print("  3. aadhaar_summary_statistics.csv - Overall summary with pattern breakdown")
+print("  4. aadhaar_pattern_distribution.csv - Pattern distribution counts")
+print("="*120)
