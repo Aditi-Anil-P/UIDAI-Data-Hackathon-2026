@@ -293,3 +293,19 @@ def get_targeted_recommendations(pattern, states_data):
     }
 
     return recommendations.get(pattern, "")
+
+# ==========================================
+# 8. APPLY NEW CLASSIFICATION
+# ==========================================
+
+# First ensure all rate columns exist
+if 'rate_5_17' not in analysis_df.columns:
+    analysis_df['rate_5_17'] = 0
+if 'rate_18_plus' not in analysis_df.columns:
+    analysis_df['rate_18_plus'] = 0
+
+deviated = analysis_df[analysis_df['hotspot'] != 'Normal'].copy()
+deviated['Hotspot_ID'] = range(1, len(deviated) + 1)
+deviated['pattern'] = deviated.apply(classify_pattern, axis=1)
+deviated = deviated.sort_values(['pattern', 'z_score'], ascending=[True, False]).reset_index(drop=True)
+
