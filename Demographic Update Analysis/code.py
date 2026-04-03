@@ -55,3 +55,37 @@ enrol_df = load_and_merge_data(
     'api_data_aadhar_enrolment_*.csv',
     ['age_0_5','age_5_17','age_18_greater']
 )
+
+# ==========================================
+# 3. BASE AADHAAR POPULATION
+# ==========================================
+
+base_df = pd.read_csv('Aadhar saturation 2023.csv', header=0)
+base_df['state_clean'] = base_df['State Name'].apply(clean_state_name)
+base_df = base_df[~base_df['state_clean'].str.lower().isin(JUNK_STATES)]
+
+col_target = [c for c in base_df.columns if 'Numbers of' in c and 'Aadhaar assigned' in c][0]
+
+def clean_number(x):
+    if isinstance(x, str):
+        return float(x.replace(',', '').strip())
+    return float(x) if pd.notnull(x) else 0.0
+
+base_df['base_aadhaar_population'] = base_df[col_target].apply(clean_number)
+base_grouped = base_df.groupby('state_clean', as_index=False)['base_aadhaar_population'].sum()
+
+# Age-specific populations
+base_5_17 = pd.read_csv('Aadhar saturation 2023 5-18.csv')
+base_18p  = pd.read_csv('Aadhar saturation 2023 18+.csv')
+
+base_5_17['state_clean'] = base_5_17['State Name'].apply(clean_state_name)
+base_18p['state_clean']  = base_18p['State Name'].apply(clean_state_name)
+
+col_5_17 = [c for c in base_5_17.columns if 'Aadhaar assigned' in c][0]
+col_18p  = [c for c in base_18p.columns if 'Aadhaar assigned' in c][0]
+
+base_5_17['base_5_17'] = base_5_17[col_5_17].astype(str).str.replace(',', '').astype(float)
+base_18p['base_18_plus'] = base_18p[col_18p].astype(str).str.replace(',', '').astype(float)
+
+base_5_17 = base_5_17.groupby('state_clean', as_index=False)['base_5_17'].sum()
+base_18p  = base_18p.groupby('state_clean', as_index=False)['base_18_plus'].sum()
