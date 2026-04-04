@@ -1,5 +1,5 @@
 ***
-# 🇮🇳 Unlocking Societal Trends in Aadhaar Enrolment and Updates
+# Unlocking Societal Trends in Aadhaar Enrolment and Updates
 **UIDAI Data Hackathon 2026 Submission**
 
 > *This repository contains a comprehensive, multi-dimensional Predictive Governance Intelligence System designed to transform fragmented Aadhaar and welfare scheme datasets into actionable, geo-spatial policy intelligence.*
